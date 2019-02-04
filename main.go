@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+type allJSON struct {
+	all []fileJSON
+}
+
 type fileJSON struct {
 	Title string
 	Cards map[string]string
@@ -26,7 +30,25 @@ func prettyMap(m map[string]string) {
 	}
 }
 
-func readFiles(dir string) ([]string, error) {
+func convertFile(f string) ([]string, error) {
+	var lines []string
+	openFile, err := os.Open(f)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(openFile)
+	for scanner.Scan() {
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	openFile.Close()
+	return lines, nil
+}
+
+func readDir(dir string) ([][]string, error) {
 	f, err := os.Open(dir)
 	defer f.Close()
 	if err != nil {
@@ -38,41 +60,38 @@ func readFiles(dir string) ([]string, error) {
 	}
 	// Enter the /text directory to access all .txt files
 	os.Chdir(dir)
-	var lines []string
+	var fileLines [][]string
 	for _, file := range files {
-		openFile, err := os.Open(file.Name())
+		fLines, err := convertFile(file.Name())
 		if err != nil {
 			return nil, err
 		}
-
-		scanner := bufio.NewScanner(openFile)
-		for scanner.Scan() {
-			lines = append(lines, strings.TrimSpace(scanner.Text()))
-		}
-		if err := scanner.Err(); err != nil {
-			return nil, err
-		}
-		openFile.Close()
+		fileLines = append(fileLines, fLines)
 	}
 	// Exit /text directory to main directory
+	fmt.Println(fileLines[0])
 	os.Chdir("../")
-	return lines, nil
+	return fileLines, nil
 }
 
 // Q|A|Q|A|Q|A|Q|A
 // 0|1|2|3|4|5|6|7
-func writeJSON(readLines []string) {
-	var cards = make(map[string]string)
-	for i := 1; i < len(readLines); i += 2 {
-		cards[readLines[i]] = readLines[i+1]
-	}
-	f := fileJSON{
-		Title: readLines[0],
-		Cards: cards,
+func writeJSON(readLines [][]string) {
+	var a []fileJSON
+	for _, readLine := range readLines {
+		var cards = make(map[string]string)
+		for i := 1; i < len(readLine); i += 2 {
+			cards[readLine[i]] = readLine[i+1]
+		}
+		f := fileJSON{
+			Title: readLine[0],
+			Cards: cards,
+		}
+		a = append(a, f)
 	}
 	// prettyMap(cards)
 	var jsonData []byte
-	jsonData, err := json.MarshalIndent(f, "", "    ")
+	jsonData, err := json.MarshalIndent(a, "", "    ")
 	if err != nil {
 		log.Println(err)
 	}
@@ -80,10 +99,9 @@ func writeJSON(readLines []string) {
 }
 
 func main() {
-	readLines, err := readFiles("./text")
+	readLines, err := readDir("./text")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	writeJSON(readLines)
 }
