@@ -9,27 +9,14 @@ import (
 	"strings"
 )
 
-type allJSON struct {
-	all []fileJSON
-}
-
+// fileJSON is the structure for each text to JSON conversion
 type fileJSON struct {
 	Title string
 	Cards map[string]string
 }
 
-func prettyMap(m map[string]string) {
-	// Creat tmp file to store the maps print out
-	file, err := os.Create("tmp")
-	if err != nil {
-		log.Fatal("Cannot create file", err)
-	}
-	defer file.Close()
-	for k, v := range m {
-		fmt.Fprintf(file, "Question: %s\nAnswer: %s\n", k, v)
-	}
-}
-
+// convertFile opens a file, reads each line, and returns
+// a list of every line
 func convertFile(f string) ([]string, error) {
 	var lines []string
 	openFile, err := os.Open(f)
@@ -48,6 +35,8 @@ func convertFile(f string) ([]string, error) {
 	return lines, nil
 }
 
+// readDir traverses through every file in a directory and calls convertFile() on each
+// returning a list of lists that contain each line in every file in the directory.
 func readDir(dir string) ([][]string, error) {
 	f, err := os.Open(dir)
 	defer f.Close()
@@ -68,14 +57,12 @@ func readDir(dir string) ([][]string, error) {
 		}
 		fileLines = append(fileLines, fLines)
 	}
-	// Exit /text directory to main directory
-	fmt.Println(fileLines[0])
+	// Exit /text directory
 	os.Chdir("../")
 	return fileLines, nil
 }
 
-// Q|A|Q|A|Q|A|Q|A
-// 0|1|2|3|4|5|6|7
+// writeJSON reads the 2D slice of file text and writes it out to the JSON structs
 func writeJSON(readLines [][]string) {
 	var a []fileJSON
 	for _, readLine := range readLines {
@@ -89,7 +76,6 @@ func writeJSON(readLines [][]string) {
 		}
 		a = append(a, f)
 	}
-	// prettyMap(cards)
 	var jsonData []byte
 	jsonData, err := json.MarshalIndent(a, "", "    ")
 	if err != nil {
